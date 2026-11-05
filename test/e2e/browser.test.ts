@@ -43,8 +43,9 @@ it('kills a browser that drops its connection and keeps running, without a notic
 })
 
 it('times out a hung step, closes its page and keeps later calls working', async () => {
-  // The runner cannot start Chromium's sandbox (no unprivileged user namespaces), and helpers.ts strips
-  // ULTIMATE_* from the worker env, so a CI variable cannot reach the extension: stub the knob instead.
+  // Stub the sandbox off: CI runners and containers often cannot start Chromium's sandbox, and a
+  // ULTIMATE_CHROMIUM_SANDBOX=0 in the outer env cannot reach the extension - helpers strips every
+  // ULTIMATE_* variable from the worker env. The knob is only deliverable inside the test.
   vi.stubEnv('ULTIMATE_CHROMIUM_SANDBOX', '0')
   const directory = await temp('ultimate-browser-timeout-')
   const closers: (() => Promise<void>)[] = []
@@ -60,6 +61,9 @@ it('times out a hung step, closes its page and keeps later calls working', async
   const browser = browserExtension(host).tools!.find((tool) => tool.name === 'browser')!
   const api = { output() {} } as unknown as ToolExecutionApi
   const url = 'data:text/html,<title>Hang</title>'
+  // A cold launch takes seconds on a quiet runner, and the timed calls' 1s budget bounds the
+  // launch too (the guard wraps it): warm the browser once outside the timed calls.
+  await browser.execute({ url, steps: [{ eval: '1' }] }, api, context)
   const drive = async (steps: unknown[], timeoutMs?: number) => {
     const started = Date.now()
     const result = await browser.execute({ url, steps, screenshot: false, timeoutMs }, api, context)
@@ -83,8 +87,9 @@ it('times out a hung step, closes its page and keeps later calls working', async
 })
 
 it('saves screenshots at the given path, relative to the conversation cwd, creating parents', async () => {
-  // The runner cannot start Chromium's sandbox (no unprivileged user namespaces), and helpers.ts strips
-  // ULTIMATE_* from the worker env, so a CI variable cannot reach the extension: stub the knob instead.
+  // Stub the sandbox off: CI runners and containers often cannot start Chromium's sandbox, and a
+  // ULTIMATE_CHROMIUM_SANDBOX=0 in the outer env cannot reach the extension - helpers strips every
+  // ULTIMATE_* variable from the worker env. The knob is only deliverable inside the test.
   vi.stubEnv('ULTIMATE_CHROMIUM_SANDBOX', '0')
   const directory = await temp('ultimate-browser-path-')
   const closers: (() => Promise<void>)[] = []
@@ -100,6 +105,8 @@ it('saves screenshots at the given path, relative to the conversation cwd, creat
   const api = (env = true) =>
     ({ env: env ? { cwd } : undefined, output() {} }) as unknown as ToolExecutionApi
   const url = 'data:text/html,<title>Shot</title><p>hello</p>'
+  // Warm the browser outside the screenshot calls: a cold launch takes seconds on a quiet runner.
+  await tools.get('browser')!.execute({ url, steps: [{ eval: '1' }] }, api(), context)
   const file = async (name: string, args: Record<string, unknown>, env?: boolean) => {
     const result = await tools.get(name)!.execute({ url, waitMs: 0, ...args }, api(env), context)
     expect(result.isError).toBeFalsy()
