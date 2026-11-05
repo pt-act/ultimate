@@ -1,36 +1,44 @@
-# Security
-
-Ultimate is a local coding agent: it runs model-authored commands with your user's privileges, in your project
-directory. Treat it as you would any tool that can edit your files and reach your network.
+# Security policy
 
 ## Reporting a vulnerability
 
-Report privately, not in a public issue. Where the repository has **Settings → Code security → Private vulnerability
-reporting** turned on, its **Security → Advisories → Report a vulnerability** form is the channel; otherwise contact
-the maintainer of the clone you are running through whatever private channel they publish. A fork ships with that
-feature off, and only its own administrator can turn it on, so this file names the path rather than a URL that would
-404 there.
+Report through GitHub's private vulnerability reporting: **Security → Report a vulnerability** on this
+repository. Do not open a public issue for a suspected vulnerability.
 
-Include what you need to make the problem reproducible: the version or commit, your platform, and the smallest
-sequence of steps that shows the issue. A proof of concept in a throwaway project is welcome; do not send secrets,
-private repository contents, or anything you are not free to share.
+Include what you know: the affected area (`server/request-security.ts`, a specific extension, the web
+UI), the commit you tested, a reproduction and, if you have one, an impact sketch. A proof that needs
+no special access is worth more than a long theory.
 
-This is a personal project, not a product with a support contract, so there is no response-time commitment. Reports
-are read and real issues are fixed.
+Reports are triaged as they land. You get an answer before anything is published; fixes land on
+`main` like any other change, and credit is yours to claim or decline.
 
 ## Scope
 
-In scope: anything that breaks the trust boundaries this project claims for itself. That means getting the loopback
-origin or identity checks to admit a request they should refuse, reaching the API or the agent from a web page on
-another origin, escalating from a project extension to something it should not do without the trust decision, or
-making the updater apply code the user did not choose.
+Ultimate runs on your machine: the server binds loopback only, and the UI is meant for the operator
+using it. The optional `tailscale` extension serves it over the tailnet, to the logins it allows. In
+scope is anything that lets a web page, a remote server or a repository break that boundary —
 
-Out of scope: the agent running shell commands, editing files, or reaching the network. That is the product. A
-prompt that talks the model into a destructive command is a prompt-injection case, not a vulnerability in this
-codebase — the model is instructed to run what you ask it to run.
+- a request admitted that `server/request-security.ts` should refuse: a cross-site write, a
+  cross-origin read, a frame the header policy does not name;
+- the agent's tools or extensions reading or sending data past a limit their code enforces;
+- a page in the UI acting as another conversation or project (`?conversation=`, previews,
+  `window.ultimate`);
+- secret material (provider keys, tokens, conversation contents) ending up somewhere the operator did
+  not put it;
+- a tailnet request admitted for a login the `tailscale` allowlist does not name;
+- a project's `.ultimate/` extensions, agents, skills or settings taking effect before the operator
+  trusts that project.
 
-## Deploying
+Out of scope:
 
-The server binds to `127.0.0.1` and expects to stay there. Do not expose an instance to a network you do not
-control. For untrusted work, run it in a container, a VM, or a disposable worktree, and review a project's
-extensions before accepting its trust prompt; accepting one runs that project's code on your machine.
+- a hostile process already running on the machine, or an extension the operator chose to install;
+- the browser sandbox disabled with `ULTIMATE_CHROMIUM_SANDBOX=0` — the knob exists for environments
+  where sandboxing cannot start, and turning it off there is the operator's call;
+- attacks that require the operator to hand over access: a prompt they paste, a link they accept;
+- content an agent reads (a web page, a file, a tool result) steering what it does, unless it gets
+  past a boundary enforced in code: project trust, the request and header policy, the Tailscale
+  allowlist.
+
+## Supported
+
+Security fixes land on `main`; run the current `main` to get them.
